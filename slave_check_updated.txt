@@ -1,0 +1,57 @@
+#!/usr/bin/bash
+
+#Script to run automated sql queries
+
+#Declaring mysql DB connection
+
+hostname -s
+
+MASTER_DB_USER='root'
+MASTER_DB_PASSWD='12343'
+
+#LOGFILE_PATH=/app/backup/
+#date=$(date +"%d-%b-%y-%H-%M-%p")
+
+
+STATUS_LINE=$(mysql -u$MASTER_DB_USER -p$MASTER_DB_PASSWD  -S /var/lib/mysql/mysql.sock  -e "SHOW SLAVE STATUS\G")"1"
+LAST_ERRNO=$(grep "Last_Errno" <<< "$STATUS_LINE" | awk '{ print $2 }')
+SECONDS_BEHIND_MASTER=$( grep "Seconds_Behind_Master" <<< "$STATUS_LINE" | awk '{ print $2 }')
+IO_IS_RUNNING=$( grep "Slave_IO_Running" <<< "$STATUS_LINE" | awk '{ print $2 }')
+SQL_IS_RUNNING=$(grep "Slave_SQL_Running" <<< "$STATUS_LINE" | awk '{ print $2 }')
+MASTER_LOG_FILE=$(grep " Master_Log_File" <<< "$STATUS_LINE" | awk '{ print $2 }')
+RELAY_MASTER_LOG_FILE=$(grep "Relay_Master_Log_File" <<< "$STATUS_LINE" | awk '{ print $2 }')
+ERRORS=()
+MESSAGE="NO ERROR"
+bold=$(tput bold)
+normal=$(tput sgr0)
+echo "${bold}MYSQL_CHECK : ${normal} $MYSQL_CHECK " >> /app/backup/log/slave.log
+echo "${bold}LAST_ERRNO : ${normal} $LAST_ERRNO " >> /app/backup/log/slave.log
+printf "\n"
+echo "${bold}SECONDS_BEHIND_MASTER : ${normal} $SECONDS_BEHIND_MASTER" >> /app/backup/log/slave.log
+printf "\n"
+echo "${bold}IO_IS_RUNNING : ${normal} $IO_IS_RUNNING" >> /app/backup/log/slave.log
+printf "\n"
+echo "${bold}SQL_IS_RUNNING : ${normal} $SQL_IS_RUNNING" >> /app/backup/log/slave.log
+printf "\n"
+echo "${bold}MASTER_LOG_FILE : ${normal} $MASTER_LOG_FILE" >> /app/backup/log/slave.log
+printf "\n"
+echo "${bold}RELAY_MASTER_LOG_FILE : ${normal} $RELAY_MASTER_LOG_FILE" >> /app/backup/log/slave.log
+printf "\n"
+
+mv /app/backup/log/slave.log /app/backup/log/slavecheck`date +\%Y\%m\%d`.log
+### if there is an error ###
+if [ "${#ERRORS[@]}" -gt 0 ]
+then
+MESSAGE="An error has been detected involving the mysql replciation. Below is a list of the reported errors:\n\n
+$(for i in $(seq 1 ${#ERRORS[@]}) ; do echo "\t${ERRORS[$i]}\n" ; done)
+Please correct this ASAP
+"
+echo -e $MESSAGE | mailx -s "MySQL Replication error"  srini@xxxx..com
+else
+echo -e $MESSAGE | mailx -s "MySQL Replication error" srini@xxxx.com
+fi
+
+
+
+
+00 01 * * * /app/backup/slave/slavecheck.sh > /app/backup/log/`date +\%Y\%m\%d\%H\%M\%S`-cron.log 2>&1
