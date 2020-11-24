@@ -1,0 +1,26 @@
+#!/bin/bash
+
+#Change BACKUPDIR accordingly
+BACKUPDIR=/backup/mysql/
+DIR=`date +"%Y-%m-%d"`
+mkdir -p $BACKUPDIR/$DIR
+NOW=$(date +%Y%m%d-%H%M%S)
+THISHOST=`echo $(hostname)`
+TOEMAIL="srinivas.arra@xxxx.com"
+MAILBODY="MEB Database Backup failed ON SERVER: $THISHOST TIMESTAMP: $NOW"
+MAILSUBJECT="MEB Database Backup failed ON SERVER: $THISHOST TIMESTAMP: $NOW"
+
+#Clean up backup folders older than 15 days generated from MySQL Enterprise Backup
+
+find $BACKUPDIR -mtime +15 -exec rm {} \;
+
+#Start MySQL Enterprise Backup task
+`mysqlbackup --login-path=mysqlroot --socket=/var/lib/mysql/mysql.sock --backup-dir=$BACKUPDIR/$DIR --backup-image=FullBackup.mbi backup-to-image --compress`
+cd $BACKUPDIR/
+#tar -zcvf backup`date +"%Y-%m-%d"`.tar.gz $DIR/
+#rm -rf $DIR/
+
+#Send Mail on Backup Failure
+#if [ $? != 0 ]; then
+#        echo "$MAILBODY" | mailx -s "$MAILSUBJECT" -r "MEB" $TOEMAIL
+#fi
