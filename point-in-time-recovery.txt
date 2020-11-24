@@ -1,0 +1,57 @@
+
+1) Assume the full backup is taken at UTC 21:00:00
+
+mysqlbackup --login-path=mysqlroot --host=127.0.0.1 --backup-dir=/var/lib/mysqlbackups --with-timestamp --backup-image=my.mbi backup-to-image  --compress
+
+
+
+2) Assume at about UTC 22:00:00, user deleted some data by mistake, and we need to restore the database back to UTC 21:30:00
+
+
+
+3) Save the existing binary logs, stop mysql server, and restore the full MEB backup.
+
+The binary logs are located default inside the MySQL data directory if the path is not specified inside the /etc/my.cnf file
+
+
+
+For example:
+
+# systemctl stop mysqld
+
+# cp /app/db/mysql/data/xxxxxx-bin.* /home/myhome
+
+# rm -rf /app/db/mysql/data/*
+
+# mysqlbackup --backup-image=/var/lib/mysqlbackups/2016-12-01_19-40-21/my.mbi --backup-dir=/db/mysql/restore-tmp copy-back-and-apply-log --uncompress
+
+# chown -R mysql:mysql /app/db/mysql/data
+
+# systemctl start mysqld
+
+
+
+4) Roll forward binary logs to UTC 21:30:00
+
+mysqlbinlog --start-datetime="2016-12-01 21:00:00" --stop-datetime="2016-12-01 21:30:00" /home/myhome/xxx-bin.000001 xxx-bin.000002 | mysql -uroot -p
+
+
+
+The following command can be used to read the content in MySQL binlogs:
+
+a) If you want to see statement representation of row events use option --verbose (-v)
+
+mysqlbinlog xxxxxx-bin.000004 --base64-output=DECODE-ROWS --verbose
+
+
+
+b) If you want to see metadata of columns specify --verbose  twice: --verbose --verbose  or -vv
+
+mysqlbinlog /home/nsama151/mysqlpocdb-wc-9p-bin.000004 --base64-output=DECODE-ROWS --verbose --verbose
+
+
+
+c) If you want to suppress output of row events specify option --base64-output=DECODE-ROWS
+
+mysqlbinlog /home/nsama151/mysqlpoc-bin.000004 --base64-output=DECODE-ROWS
+
